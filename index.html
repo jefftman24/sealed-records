@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset=utf-8 />
+    <title>US Unemployment Rates by County 2001-2015</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: whitesmoke;
+            font-family: Lato, sans-serif;
+            color: #0D0000;
+        }
+
+        h1 {
+            position: absolute;
+            z-index: 650;
+            top: 10px;
+            left: 15px;
+            padding: 8px 15px;
+            margin: 0;
+            color: rgb(0, 0, 0);
+            font-size: 1.8em;
+            background: rgba(245, 245, 245, 0.8);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        h2 {
+            display: inline-block;
+            color: #001323;
+        }
+
+        #map {
+            position: absolute;
+            width: 100%;
+            top: 0;
+            bottom: 0;
+        }
+
+        .legend {
+            padding: 6px 8px;
+            font-size: 1em;
+            font-weight: bold;
+            background: rgba(245, 245, 245, 0.8);
+            color: rgb(0, 0, 0);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            width: 160px;
+        }
+
+        .legend h3 {
+            font-size: 1.1em;
+            font-weight: bold;
+            line-height: 1em;
+            color: rgb(0, 0, 0);
+            margin: 0;
+        }
+
+        .legend h3 span {
+            font-size: 1.3em;
+            margin: 0 20px 0 0;
+        }
+
+        .legend ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 12px 4px 0;
+        }
+
+        .legend li {
+            height: 22px;
+        }
+
+        .legend span {
+            width: 30px;
+            height: 20px;
+            float: left;
+            margin-right: 10px;
+        }
+
+        #ui-controls {
+            width: 176px;
+            padding: 8px 25px 8px 15px;
+            background: rgba(245, 245, 245, 0.8);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            color: rgb(0, 0, 0);
+        }
+
+        #ui-controls .min {
+            float: left;
+        }
+
+        #ui-controls .max {
+            float: right;
+            margin-right: -15px;
+        }
+
+        .year-slider {
+            width: 100%;
+        }
+
+        label {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        footer {
+            padding: 6px 10%;
+            width: 80%;
+        }
+
+        p {
+            font-size: 1em;
+            color: #001323;
+        }
+
+    </style>
+</head>
+
+<body>
+    <h1>U.S. Unemployment Rates: &nbsp; 2001 &ndash; 2015</h1>
+    <div id="map"></div>
+    <div id="ui-controls">
+        <label><span class="min">2001</span><span class="max">2015</span>
+            <input type="range" min = "2001", max= "2015",
+                   value = "2001", step= "1", class="year-slider">
+        </label>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.3.6/papaparse.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/1.3.5/chroma.min.js"></script>
+    <script>
+
+        // ####### MAP OPTIONS #######
+        var options = {
+            center: [39.58,-93.75],
+            zoom: 4.5,
+            zoomSnap: 0.1,
+            zoomControl: false
+        }
+
+        // ####### CREATE THE LEAFLET MAP #######
+        var map = L.map('map', options);
+
+            // ####### ADD ZOOM CONTROL TO BOTTOM-RIGHT OF MAP #######
+            map.addControl( L.control.zoom({position: 'bottomright'}) )
+
+        // ####### REQUEST TILES & ADD TO MAP #######
+        var tiles = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_nolabels/{z}/{x}/{y}.pn  g', {
+	          attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+            subdomains: 'abcd',
+            ext: 'png'
+        }).addTo(map);
+
+        // ####### AJAX REQUEST FOR GEOJSON DATA & CALLBACK FUNCTION #######
+        $.getJSON("data/us-counties.json", function(counties) {
+
+            // ####### PAPA.PARSE METHOD TO PARSE CSV & CALLBACK FUNCTION #######
+            Papa.parse('data/us-enemployment-fip.csv', {
+              download: true,
+              header: true,
+              complete: function(data) {
+
+                // ####### CALL processData FUCTION #######
+                processData(counties, data);
+
+              }
+            }); // ####### END OF PAPA.PARSE() #######
+
+        });  // ####### END OF $.GETJSON() #######
+
+
+        function processData(counties, data) {
+
+          // ####### LOOP THROUGH ALL THE COUNTIES #######
+          for (var i = 0; i < counties.features.length; i++) {
+
+              // ####### SHORT-HAND VARIABLE TO COUNTY PROPERTIES #######
+              var props = counties.features[i].properties;
+
+              // ####### FOR EACH OF THE CSV DATA RECORDS #######
+              for (var j = 0; j < data.data.length; j++) {
+
+                  // ####### IF STATEMENT TO FIND THE MATCHING RECORDS IN DATASETS #######
+                  if (props.GEOID === data.data[j].FIP_CODE) {
+
+                      // ####### RE-ASSIGN THE DATA FOR THAT CONTY AS THE COUNTTY'S PROPS #######
+                      counties.features[i].properties = data.data[j];
+
+                      // ####### NO NEED TO KEEP LOOPING, BREAK FROM INNER LOOP #######
+                      break;
+                  }
+              }
+          }
+
+          // ####### CRAETE EMPTY ARRAY TO STORE DATA VALUES #######
+          var rates = [];
+
+          // ####### ITERATE THROUGH EACH COUNTY #######
+          counties.features.forEach(function(county) {
+
+              // ####### ITERATE THROUGH ALL THE PROPS OF EACH COUNTY #######
+              for (var prop in county.properties) {
+
+                  // ####### IF ATTRIBUTE VALUE IS NOT A NUMBER #######
+                  if (+prop) {
+                      // ####### PUSH THAT ATTRIBUTE VALUE INTO THE ARRAY #######
+                      // ####### THE PLUS SYMBOL IS EQUIVALENT Number() FUCTION#######
+                      rates.push(+county.properties[prop]);
+                  }
+              }
+          });
+
+
+        // ####### DETERMINE CLASS BREAKS FROM RATES ARRAY #######
+        var breaks = chroma.limits(rates, 'k', 5);
+
+        // ####### USE CHROMA.JS TO GENERATE CLASS BREAKS FUNCTION EXPRESSION #######
+        var colorize = chroma.scale(chroma.scale(['#feebe2', '#7a0177']).padding([0.2, 0])).classes(breaks);
+
+            // ####### CALL drawMap FUCTION #######
+            drawMap(counties, colorize);
+
+            // ####### CALL drawLegend FUCTION #######
+            drawLegend(breaks, colorize);
+
+        }
+
+
+        function drawMap(counties, colorize) {
+
+            // ####### CREATE LEAFLET OBJECT W/ GEOMETRY DATA & ADD TO MAP #######
+            var dataLayer = L.geoJson(counties, {
+                style: function(feature) {
+                    return {
+                        color: 'black',
+                        weight: 1.0,
+                        fillOpacity: 0.8,
+                        fillColor: 'blue'
+                        };
+                    },
+                onEachFeature: function(feature, layer) {
+
+        					 // ####### WHEN MOUSE OVER LAYER #######
+        					  layer.on('mouseover', function() {
+
+        						   // ####### CHANGE THE LINE COLOR & WEIGHT TO RED #######
+        						   layer.setStyle({
+        							   color: 'yellow',
+                         weight: 2.5
+        						   }).bringToFront();
+        					  });
+
+        					  // ####### WHEN MOUSE OFF LAYER #######
+        					  layer.on('mouseout', function() {
+
+        					    // ####### RESET LAYER STTLE TO ORIGINAL SETTINGS #######
+        					    layer.setStyle({
+        						    color: '#000000',
+                        weight: 1.0
+        						  });
+        					  });
+
+        				}
+
+            }).addTo(map);
+
+            // ####### CALL updateMap FUCTION #######
+            updateMap(dataLayer, colorize, '2001')
+
+            // ####### CALL createSliderUI FUCTION #######
+            createSliderUI(dataLayer, colorize)
+
+        } // ######## END drawMap FUNCTION #######
+
+
+        function updateMap(dataLayer, colorize, currentYear) {
+
+            // ####### LOOP THROUGH EACH LAYER WITH LEAFLET METHOD #######
+            dataLayer.eachLayer(function(layer) {
+
+                // ####### SHORT-HAND VARIABLE TO PROPERTIES #######
+                var props = layer.feature.properties;
+
+                // ####### CHANGE FILL COLOR WITH SET STYLE LEAFLET METHOD #######
+                layer.setStyle({
+                    fillColor: colorize(props[currentYear])
+                });
+
+                // ####### STRING SEQUENCE TO BE ADDED TO TOOLTIP #######
+                var popupInfo = "<b>" + props["NAME"] + "</b></br>" + "<i>" + props[currentYear]
+        											   + "% Unemployment" + " (" + [currentYear] + ")" + "</i>";
+
+                // ####### BIND TOLLTIP TO LAYER W/ COUNTY SPECIFIC ATTRIBUTES #######
+                layer.bindPopup(popupInfo, {
+                });
+
+            });
+
+        }  // ####### END updateMap FUNCTION #######
+
+
+        function drawLegend(breaks, colorize) {
+
+          // ####### CREATE LEAFLET CONTROL FROM THE LEGEND #######
+          var legendControl = L.control({
+              position: 'topright'
+          });
+
+          // ####### USER CONTROL IS ADDED TO THE MAP #######
+          legendControl.onAdd = function(map) {
+
+              // ####### CREATE NEW DIV ELEMENT W/ CLASS OF 'LEGEND' #######
+              var legend = L.DomUtil.create('div', 'legend');
+
+              // ######## RETURN THE LEGEND FROM THE ADD ON METHOD #######
+              return legend;
+          };
+
+          // ####### ADD LEGEND TO THE MAP #######
+          legendControl.addTo(map);
+
+          // ######## CREATE VARIABLE THAT SELECTS THE LEGEND & ALSO USES ########
+         //  #### HTML TO POPULATE THE TITLE & START AN UNORDERED LIST (UL)  #####
+          var legend = $('.legend').html("<h3><span>2001</span> Unemployment Rates</h3><ul>");
+
+          // ####### LOOP THROUGH THE BREAK VALUES #######
+          for (var i = 0; i < breaks.length - 1; i++) {
+
+              // ####### ACCESS THE COLOR FOR EACH CLASS RANGE #######
+              var color = colorize(breaks[i]);
+
+              // ####### BUILD A LIST ITEM (LI) W/ COLOR BLOCK VALUES #######
+              var classRange = '<li><span style="background:' + color + '"></span> ' +
+                  breaks[i].toLocaleString() + ' &mdash; ' +
+                  breaks[i + 1].toLocaleString() + '</li>'
+
+              // ####### APPEND THE LIST ITEM (LI) TO UNORDERED LIST (UL) #######
+              $('.legend ul').append(classRange);
+          }
+
+          // ####### CLOSE THE UNORDERED LIST (UL) #######
+          legend.append("</ul>");
+
+        } // ####### END drawLegend FUNCTION #######
+
+
+        function createSliderUI(dataLayer, colorize) {
+
+          // ####### CREATE LEAFLET CONTROL SLIDER #######
+          var sliderControl = L.control({
+              position: 'bottomleft'}
+          );
+
+          // ####### ADD CONTROL OBJECT TO THE MAP #######
+          sliderControl.onAdd = function(map) {
+
+              // ####### SELECTS EXISTING DOM ELEMENT W/ ID OF "UI-CONTROLS"
+              var slider = L.DomUtil.get("ui-controls");
+
+              // ####### DISABLE SCROLLING WHILE USING CONTROLS #######
+              L.DomEvent.disableScrollPropagation(slider);
+
+              // ####### DISABLE CLICK EVENTS WHILE USING CONTROLS #######
+              L.DomEvent.disableClickPropagation(slider);
+
+              // ######## RETURN THE SLIDER FROM THE ADD ON METHOD #######
+              return slider;
+          }
+
+          // ####### ADD THE CONTROL TO THE MAP #######
+          sliderControl.addTo(map);
+
+          // ####### SELECT THE FORM ELEMENT USING THE CLASS NAME "YEAR-SLIDER" #######
+          $(".year-slider")
+              // ####### LISTEN FOR CHANGES TO THE INPUT ELEMENT #######
+              .on("input change", function() {
+                  var currentYear = this.value;
+
+                  // ####### SELECT THE H3 SPAN TAG & UPDATE HTML W/ CURRNENT YEAR ########
+                  $('.legend h3 span').html(currentYear);
+
+                  // ####### CALL updateMap FUCTION #######
+                  updateMap(dataLayer, colorize, currentYear);
+
+              });
+
+        } // ####### END createSliderUI FUNCTION #######
+    </script>
+
+</body>
+
+</html>
