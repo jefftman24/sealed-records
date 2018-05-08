@@ -185,7 +185,32 @@
                 opacity: 0.7,
                 fillOpacity: 0.5
               };
-            },
+            }
+
+            // onEachFeature: function(feature, layer) {
+            //
+               // // ####### WHEN MOUSE OVER LAYER #######
+               //  layer.on('mouseover', function() {
+               //
+               //     // ####### CHANGE THE LINE COLOR & WEIGHT TO RED #######
+               //     layer.setStyle({
+               //       color: 'yellow',
+               //       weight: 2.5
+               //     }).bringToFront();
+               //  });
+               //
+               //  // ####### WHEN MOUSE OFF LAYER #######
+               //  layer.on('mouseout', function() {
+               //
+               //    // ####### RESET LAYER STTLE TO ORIGINAL SETTINGS #######
+               //    layer.setStyle({
+               //      color: '#000000',
+               //      weight: 1.0
+               //    });
+               //  });
+            //
+            // }
+
           }).addTo(map)
 
           // ####### CREATE DISTRICTS LEAFLET DATA LAYER #######
@@ -198,9 +223,69 @@
                 fillOpacity: 0
               };
             },
-          }).addTo(map)
+          })
+          // }).addTo(map)
+
+          // ####### CREATE DISTRICTS LEAFLET DATA LAYER #######
+          var counties = L.geoJson(countiesData, {
+            style: function(feature) {
+              return {
+                color: 'black',
+                weight: 1,
+                opacity: 0.7,
+                fillOpacity: 0
+              };
+            },
+          })
+
+          // ####### CALL highlightTooltip FUNCTION #######
+          highlightTooltip(districts);
 
         }
+
+
+        function highlightTooltip(districts) {
+
+          // ####### LOOP THROUGH dataLayer #######
+          districts.eachLayer(function(layer) {
+
+            // ####### WHEN MOUSE OVER LAYER #######
+             layer.on('mouseover', function() {
+
+                // ####### CHANGE THE LINE COLOR & WEIGHT TO RED #######
+                layer.setStyle({
+                  color: 'yellow',
+                  weight: 2.5
+                }).bringToFront();
+             });
+
+             // ####### WHEN MOUSE OFF LAYER #######
+             layer.on('mouseout', function() {
+
+               // ####### RESET LAYER STTLE TO ORIGINAL SETTINGS #######
+               layer.setStyle({
+                 color: '#000000',
+                 weight: 1.0
+               });
+             });
+
+            var props = layer.feature.properties;
+
+            // ####### HTML STRING FOR TOOLTIP DISPLAY #######
+            var tooltipInfo = props["csv_District"] + " (" + props["DIST"] + ")" + "</br>" +
+                              "Total Records: " + props["csv_Total"];
+
+            // ####### BIND TOOLTIP TO LAYER #######
+            layer.bindTooltip(tooltipInfo, {
+              // ####### STICKY PROPERTY SO TOOLTIP FOLLOWS THE MOUSE #######
+              sticky: true,
+              tooltipAnchor: [200, 200]
+            });
+
+            }).addTo(map); 
+
+        }
+
 
     </script>
 
