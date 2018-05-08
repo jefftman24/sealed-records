@@ -3,8 +3,9 @@
 
 <head>
     <meta charset=utf-8 />
-    <title>US Unemployment Rates by County 2001-2015</title>
+    <title>United States Federal Sealed Indictments by Judical District (October 2017 - April 2018)</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <meta name="keywords" content="Sealed Indictments, #SealedIndictments, Sealed Reocrds, Qanon, #MAGA, #WWG1WGA, Great Awakening, #GreatAwakening">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" />
     <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
@@ -162,240 +163,45 @@
             ext: 'png'
         }).addTo(map);
 
-        // ####### AJAX REQUEST FOR GEOJSON DATA & CALLBACK FUNCTION #######
-        $.getJSON("data/us-counties.json", function(counties) {
-
-            // ####### PAPA.PARSE METHOD TO PARSE CSV & CALLBACK FUNCTION #######
-            Papa.parse('data/us-enemployment-fip.csv', {
-              download: true,
-              header: true,
-              complete: function(data) {
-
-                // ####### CALL processData FUCTION #######
-                processData(counties, data);
-
-              }
-            }); // ####### END OF PAPA.PARSE() #######
-
-        });  // ####### END OF $.GETJSON() #######
+        // ####### CREATE VARIABLES FROM GEOJSON DATA #######
+        var districtsData = $.getJSON("data/districts_sealed_records.geojson"),
+            statesData = $.getJSON("data/states.geojson"),
+            countiesData = $.getJSON("data/counties.geojson")
 
 
-        function processData(counties, data) {
-
-          // ####### LOOP THROUGH ALL THE COUNTIES #######
-          for (var i = 0; i < counties.features.length; i++) {
-
-              // ####### SHORT-HAND VARIABLE TO COUNTY PROPERTIES #######
-              var props = counties.features[i].properties;
-
-              // ####### FOR EACH OF THE CSV DATA RECORDS #######
-              for (var j = 0; j < data.data.length; j++) {
-
-                  // ####### IF STATEMENT TO FIND THE MATCHING RECORDS IN DATASETS #######
-                  if (props.GEOID === data.data[j].FIP_CODE) {
-
-                      // ####### RE-ASSIGN THE DATA FOR THAT CONTY AS THE COUNTTY'S PROPS #######
-                      counties.features[i].properties = data.data[j];
-
-                      // ####### NO NEED TO KEEP LOOPING, BREAK FROM INNER LOOP #######
-                      break;
-                  }
-              }
-          }
-
-          // ####### CRAETE EMPTY ARRAY TO STORE DATA VALUES #######
-          var rates = [];
-
-          // ####### ITERATE THROUGH EACH COUNTY #######
-          counties.features.forEach(function(county) {
-
-              // ####### ITERATE THROUGH ALL THE PROPS OF EACH COUNTY #######
-              for (var prop in county.properties) {
-
-                  // ####### IF ATTRIBUTE VALUE IS NOT A NUMBER #######
-                  if (+prop) {
-                      // ####### PUSH THAT ATTRIBUTE VALUE INTO THE ARRAY #######
-                      // ####### THE PLUS SYMBOL IS EQUIVALENT Number() FUCTION#######
-                      rates.push(+county.properties[prop]);
-                  }
-              }
-          });
+        // ####### MAKE GEOJSON DATA AVAILABLE TO drawMap FUNCTION #######
+        $.when(districtsData, statesData, countiesData).then(drawMap);
 
 
-        // ####### DETERMINE CLASS BREAKS FROM RATES ARRAY #######
-        var breaks = chroma.limits(rates, 'k', 5);
+        function drawMap(districtsData, statesData, countiesData) {
 
-        // ####### USE CHROMA.JS TO GENERATE CLASS BREAKS FUNCTION EXPRESSION #######
-        var colorize = chroma.scale(chroma.scale(['#feebe2', '#7a0177']).padding([0.2, 0])).classes(breaks);
+          // ####### CREATE DISTRICTS LEAFLET DATA LAYER #######
+          var districts = L.geoJson(districtsData, {
+            style: function(feature) {
+              return {
+                color: 'black',
+                fillColor: 'green',
+                weight: 1.5,
+                opacity: 0.7,
+                fillOpacity: 0.5
+              };
+            },
+          }).addTo(map)
 
-            // ####### CALL drawMap FUCTION #######
-            drawMap(counties, colorize);
-
-            // ####### CALL drawLegend FUCTION #######
-            drawLegend(breaks, colorize);
+          // ####### CREATE DISTRICTS LEAFLET DATA LAYER #######
+          var states = L.geoJson(statesData, {
+            style: function(feature) {
+              return {
+                color: 'black',
+                weight: 2.5,
+                opacity: 0.7,
+                fillOpacity: 0
+              };
+            },
+          }).addTo(map)
 
         }
 
-
-        function drawMap(counties, colorize) {
-
-            // ####### CREATE LEAFLET OBJECT W/ GEOMETRY DATA & ADD TO MAP #######
-            var dataLayer = L.geoJson(counties, {
-                style: function(feature) {
-                    return {
-                        color: 'black',
-                        weight: 1.0,
-                        fillOpacity: 0.8,
-                        fillColor: 'blue'
-                        };
-                    },
-                onEachFeature: function(feature, layer) {
-
-        					 // ####### WHEN MOUSE OVER LAYER #######
-        					  layer.on('mouseover', function() {
-
-        						   // ####### CHANGE THE LINE COLOR & WEIGHT TO RED #######
-        						   layer.setStyle({
-        							   color: 'yellow',
-                         weight: 2.5
-        						   }).bringToFront();
-        					  });
-
-        					  // ####### WHEN MOUSE OFF LAYER #######
-        					  layer.on('mouseout', function() {
-
-        					    // ####### RESET LAYER STTLE TO ORIGINAL SETTINGS #######
-        					    layer.setStyle({
-        						    color: '#000000',
-                        weight: 1.0
-        						  });
-        					  });
-
-        				}
-
-            }).addTo(map);
-
-            // ####### CALL updateMap FUCTION #######
-            updateMap(dataLayer, colorize, '2001')
-
-            // ####### CALL createSliderUI FUCTION #######
-            createSliderUI(dataLayer, colorize)
-
-        } // ######## END drawMap FUNCTION #######
-
-
-        function updateMap(dataLayer, colorize, currentYear) {
-
-            // ####### LOOP THROUGH EACH LAYER WITH LEAFLET METHOD #######
-            dataLayer.eachLayer(function(layer) {
-
-                // ####### SHORT-HAND VARIABLE TO PROPERTIES #######
-                var props = layer.feature.properties;
-
-                // ####### CHANGE FILL COLOR WITH SET STYLE LEAFLET METHOD #######
-                layer.setStyle({
-                    fillColor: colorize(props[currentYear])
-                });
-
-                // ####### STRING SEQUENCE TO BE ADDED TO TOOLTIP #######
-                var popupInfo = "<b>" + props["NAME"] + "</b></br>" + "<i>" + props[currentYear]
-        											   + "% Unemployment" + " (" + [currentYear] + ")" + "</i>";
-
-                // ####### BIND TOLLTIP TO LAYER W/ COUNTY SPECIFIC ATTRIBUTES #######
-                layer.bindPopup(popupInfo, {
-                });
-
-            });
-
-        }  // ####### END updateMap FUNCTION #######
-
-
-        function drawLegend(breaks, colorize) {
-
-          // ####### CREATE LEAFLET CONTROL FROM THE LEGEND #######
-          var legendControl = L.control({
-              position: 'topright'
-          });
-
-          // ####### USER CONTROL IS ADDED TO THE MAP #######
-          legendControl.onAdd = function(map) {
-
-              // ####### CREATE NEW DIV ELEMENT W/ CLASS OF 'LEGEND' #######
-              var legend = L.DomUtil.create('div', 'legend');
-
-              // ######## RETURN THE LEGEND FROM THE ADD ON METHOD #######
-              return legend;
-          };
-
-          // ####### ADD LEGEND TO THE MAP #######
-          legendControl.addTo(map);
-
-          // ######## CREATE VARIABLE THAT SELECTS THE LEGEND & ALSO USES ########
-         //  #### HTML TO POPULATE THE TITLE & START AN UNORDERED LIST (UL)  #####
-          var legend = $('.legend').html("<h3><span>2001</span> Unemployment Rates</h3><ul>");
-
-          // ####### LOOP THROUGH THE BREAK VALUES #######
-          for (var i = 0; i < breaks.length - 1; i++) {
-
-              // ####### ACCESS THE COLOR FOR EACH CLASS RANGE #######
-              var color = colorize(breaks[i]);
-
-              // ####### BUILD A LIST ITEM (LI) W/ COLOR BLOCK VALUES #######
-              var classRange = '<li><span style="background:' + color + '"></span> ' +
-                  breaks[i].toLocaleString() + ' &mdash; ' +
-                  breaks[i + 1].toLocaleString() + '</li>'
-
-              // ####### APPEND THE LIST ITEM (LI) TO UNORDERED LIST (UL) #######
-              $('.legend ul').append(classRange);
-          }
-
-          // ####### CLOSE THE UNORDERED LIST (UL) #######
-          legend.append("</ul>");
-
-        } // ####### END drawLegend FUNCTION #######
-
-
-        function createSliderUI(dataLayer, colorize) {
-
-          // ####### CREATE LEAFLET CONTROL SLIDER #######
-          var sliderControl = L.control({
-              position: 'bottomleft'}
-          );
-
-          // ####### ADD CONTROL OBJECT TO THE MAP #######
-          sliderControl.onAdd = function(map) {
-
-              // ####### SELECTS EXISTING DOM ELEMENT W/ ID OF "UI-CONTROLS"
-              var slider = L.DomUtil.get("ui-controls");
-
-              // ####### DISABLE SCROLLING WHILE USING CONTROLS #######
-              L.DomEvent.disableScrollPropagation(slider);
-
-              // ####### DISABLE CLICK EVENTS WHILE USING CONTROLS #######
-              L.DomEvent.disableClickPropagation(slider);
-
-              // ######## RETURN THE SLIDER FROM THE ADD ON METHOD #######
-              return slider;
-          }
-
-          // ####### ADD THE CONTROL TO THE MAP #######
-          sliderControl.addTo(map);
-
-          // ####### SELECT THE FORM ELEMENT USING THE CLASS NAME "YEAR-SLIDER" #######
-          $(".year-slider")
-              // ####### LISTEN FOR CHANGES TO THE INPUT ELEMENT #######
-              .on("input change", function() {
-                  var currentYear = this.value;
-
-                  // ####### SELECT THE H3 SPAN TAG & UPDATE HTML W/ CURRNENT YEAR ########
-                  $('.legend h3 span').html(currentYear);
-
-                  // ####### CALL updateMap FUCTION #######
-                  updateMap(dataLayer, colorize, currentYear);
-
-              });
-
-        } // ####### END createSliderUI FUNCTION #######
     </script>
 
 </body>
